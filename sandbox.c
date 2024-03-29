@@ -19,21 +19,25 @@
 
 #define PREFIX "SANDBOX: "
 
-#define ALLOW_CHDIR 1 // disabling this wouldn't be of much help since there are many other syscalls such as `openat` and `unlinkat`
+// files / dirs
 //
-#define ALLOW_FILE_UTILS 1
 #define ALLOW_OPEN 1
 #define ALLOW_READ 1
 #define ALLOW_WRITE 1
 //
 #define ALLOW_DELETING 1
+#define ALLOW_CHDIR 1 // disabling this wouldn't be of much help since there are many other syscalls such as `openat` and `unlinkat`
+#define ALLOW_FILE_UTILS 1
 
+// networking
 #define ALLOW_NETWORKING 1
+
+// threading
+#define ALLOW_THREADING 1
 
 #define ALLOW_MEMORY_ALLOCATION 1
 #define ALLOW_EXECUTE_OTHER_PROGRAMS 1
 #define ALLOW_CHECK_PERMISSIONS_AND_INFO 1
-#define ALLOW_THREADING 1
 #define ALLOW_FUTEX 1 // I don't see why we would ever want to disable this
 #define ALLOW_SET_MEMORY_PROTECTION 1 // gives processes the ability to change it's own memory protection
 #define ALLOW_SIGNALS 1
@@ -46,6 +50,7 @@
 #define ALLOW_CLEAN_UP 1 // various syscalls used for cleaning up, example: close; disallowing this seems crazy
 #define ALLOW_PIPE 1
 #define ALLOW_WAIT 1
+#define ALLOW_UNKNOWN 1 // what to do if we get a syscall that we don't know
 
 int main(int argc, char* argv[]) {   
     pid_t child;
@@ -233,9 +238,9 @@ int main(int argc, char* argv[]) {
                 break;
             
             default:
-                {
-                    printf(PREFIX "unknown syscall with id %ld\n", syscall_id);
-                }
+                printf(PREFIX "unknown syscall with id %ld\n", syscall_id);
+                whitelisted = ALLOW_UNKNOWN;
+                break;
         }
 
         if(!whitelisted){
