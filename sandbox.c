@@ -31,8 +31,10 @@
 #define ALLOW_WRITE 1
 //
 #define ALLOW_DELETING 1
-#define ALLOW_CHDIR 1 // disabling this wouldn't be of much help since there are many other syscalls such as `openat` and `unlinkat`
+#define ALLOW_CHDIR_GETCWD 1 // disabling this wouldn't be of much help since there are many other syscalls such as `openat` and `unlinkat`
 #define ALLOW_FILE_UTILS 1
+#define ALLOW_CHOWN 1
+#define ALLOW_RENAME 1
 
 // networking
 #define ALLOW_NETWORKING 1
@@ -50,8 +52,8 @@
 #define ALLOW_RESOURCE_LIMITS 1
 #define ALLOW_RANDOM 1
 #define ALLOW_RSEQ 1 // I have no idea what this is
-#define ALLOW_SETUID 1 // setts the user id of a process
-#define ALLOW_POLL 1
+#define ALLOW_SETUID 1 // changes the user id
+#define ALLOW_POLL_SELECT 1
 #define ALLOW_CLEAN_UP 1 // various syscalls used for cleaning up, example: close; disallowing this seems crazy
 #define ALLOW_PIPE 1
 #define ALLOW_WAIT 1
@@ -123,11 +125,13 @@ int main(int argc, char *argv[]){
             case SYS_getppid:
             case SYS_getpgrp:
             case SYS_fstatfs:
+            case SYS_readlink:
                 whitelisted = ALLOW_CHECK_PERMISSIONS_AND_INFO;
                 break;
 
             case SYS_chdir:
-                whitelisted = ALLOW_CHDIR;
+            case SYS_getcwd:
+                whitelisted = ALLOW_CHDIR_GETCWD;
                 break;
 
             case SYS_openat:
@@ -158,6 +162,7 @@ int main(int argc, char *argv[]){
                 break;
 
             case SYS_arch_prctl:
+            case SYS_gettid:
             case SYS_set_tid_address:
             case SYS_prctl:
             case SYS_capget:
@@ -213,12 +218,16 @@ int main(int argc, char *argv[]){
                 break;
 
             case SYS_setuid:
+            case SYS_setfsuid:
+            case SYS_setfsgid:
                 whitelisted = ALLOW_SETUID;
                 break;
 
             case SYS_poll:
             case SYS_ppoll:
-                whitelisted = ALLOW_POLL;
+            case SYS_pselect6:
+            case SYS_epoll_create1:
+                whitelisted = ALLOW_POLL_SELECT;
                 break;
             
             case SYS_pipe2:
@@ -232,6 +241,14 @@ int main(int argc, char *argv[]){
             case SYS_rmdir:
             case SYS_unlinkat:
                 whitelisted = ALLOW_DELETING;
+                break;
+            
+            case SYS_chown:
+                whitelisted = ALLOW_CHOWN;
+                break;
+            
+            case SYS_rename:
+                whitelisted = ALLOW_RENAME;
                 break;
 
             // this is probably caused by us
