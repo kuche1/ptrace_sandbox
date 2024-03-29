@@ -3,7 +3,6 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/user.h>
-#include <stdbool.h>
 #include <string.h>
 #include <syscall.h>
 #include <unistd.h>
@@ -21,6 +20,8 @@
 
 #define ERR_BAD_CMDLINE -1
 #define ERR_CANT_START_PROCESS -2
+#define ERR_MALLOC -3
+#define ERR_BAD_ENVVAR -4
 
 ////// rules
 
@@ -35,9 +36,6 @@
 #define ALLOW_FILE_UTILS 1
 #define ALLOW_CHOWN 1
 #define ALLOW_RENAME 1
-
-// networking
-#define ALLOW_NETWORKING 1
 
 // threading
 #define ALLOW_THREADING 1
@@ -57,9 +55,46 @@
 #define ALLOW_CLEAN_UP 1 // various syscalls used for cleaning up, example: close; disallowing this seems crazy
 #define ALLOW_PIPE 1
 #define ALLOW_WAIT 1
-#define ALLOW_UNKNOWN 1 // what to do if we get a syscall that we don't know
 
-////// main
+////// funcions
+
+int get_intbool_env(char *name, int default_){
+
+    char *value = NULL;
+
+    {
+        int name_len = strlen(name);
+
+        char *prefix = "SANDBOX_";
+        int prefix_len = strlen(prefix);
+
+        char *actual_name = malloc(prefix_len + name_len + 1);
+        if(!actual_name){
+            exit(ERR_MALLOC);
+        }
+        memcpy(actual_name, prefix, prefix_len);
+        memcpy(actual_name + prefix_len, name, name_len);
+        actual_name[prefix_len + name_len] = 0;
+
+        value = getenv(actual_name);
+        free(actual_name);
+    }
+
+    if(!value){
+        return default_;
+    }
+
+    if(strcmp(value, "y") == 0){
+        return 1;
+    }else if(strcmp(value, "n") == 0){
+        return 0;
+    }else{
+        printf(PREFIX "invalid value for %s: `%s`\n", name, value);
+        exit(ERR_BAD_ENVVAR);
+    }
+
+    return  atoi(value); // this sucks; too bad I don't care;
+}
 
 int main(int argc, char *argv[]){
 
@@ -70,11 +105,12 @@ int main(int argc, char *argv[]){
         exit(ERR_BAD_CMDLINE);
     }
 
-    bool allow_networking = ALLOW_NETWORKING;
-    if(getenv("SANDBOX_DISABLE_NETWORKING")){
-        allow_networking = false;
-        printf(PREFIX "networking will be disabled\n");
-    }
+    int allow_networking = get_intbool_env("NETWORKING", 0);
+    printf(PREFIX "networking: %d\n", allow_networking);
+
+    // this covers unknown syscalls
+    int allow_unknown = get_intbool_env("UNKNOWN", 1);
+    printf(PREFIX "unknown: %d\n", allow_unknown);
 
     // run sandboxed process
 
@@ -100,7 +136,7 @@ int main(int argc, char *argv[]){
 
         long syscall_id = REG_SYSCALL_ID(regs);
         char *syscall_desc = "no description";
-        bool whitelisted = 0;
+        int whitelisted = 0;
 
         switch(syscall_id){
 
@@ -258,7 +294,7 @@ int main(int argc, char *argv[]){
             
             default:
                 printf(PREFIX "unknown syscall with id %ld\n", syscall_id);
-                whitelisted = ALLOW_UNKNOWN;
+                whitelisted = allow_unknown;
                 break;
         }
 
