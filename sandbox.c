@@ -59,11 +59,22 @@
 
 ////// main
 
-int main(int argc, char* argv[]) {
+int main(int argc, char *argv[]){
+
+    // parse args
+
     if(argc == 1){
         printf(PREFIX "you need to pass the application that you want to be run in the sandbox\n");
         exit(ERR_BAD_CMDLINE);
     }
+
+    bool allow_networking = ALLOW_NETWORKING;
+    if(getenv("SANDBOX_DISABLE_NETWORKING")){
+        allow_networking = false;
+        printf(PREFIX "networking will be disabled\n");
+    }
+
+    // run sandboxed process
 
     char *process_to_run = argv[1];
     char **process_args = argv + 1;
@@ -76,6 +87,8 @@ int main(int argc, char* argv[]) {
         return ERR_CANT_START_PROCESS;
     }
 
+    // filter syscalls
+
     int status;
 
     while(waitpid(child, &status, 0) && ! WIFEXITED(status)){
@@ -84,8 +97,9 @@ int main(int argc, char* argv[]) {
         ptrace(PTRACE_GETREGS, child, NULL, &regs);
 
         long syscall_id = REG_SYSCALL_ID(regs);
-
+        char *syscall_desc = "no description";
         bool whitelisted = 0;
+
         switch(syscall_id){
 
             case SYS_brk:
@@ -182,7 +196,8 @@ int main(int argc, char* argv[]) {
             case SYS_sendto:
             case SYS_getsockopt:
             case SYS_bind:
-                whitelisted = ALLOW_NETWORKING;
+                whitelisted = allow_networking;
+                syscall_desc = "networking";
                 break;
 
             case SYS_prlimit64:
@@ -219,17 +234,6 @@ int main(int argc, char* argv[]) {
                 whitelisted = ALLOW_DELETING;
                 break;
 
-            // case -1:
-            // case SYS_write:
-            //     {
-            //         unsigned int fd = regs.rdi;
-            //         // char *buf = (char *)regs.rsi; // we actually can't read this memory
-            //         size_t count = regs.rdx;
-
-            //         printf("from pid %d: SYS_write; fd=%u count=%lu\n", child, fd, count);
-            //     }
-            //     break;
-
             // this is probably caused by us
             case -1:
                 whitelisted = 1;
@@ -242,7 +246,7 @@ int main(int argc, char* argv[]) {
         }
 
         if(!whitelisted){
-            printf(PREFIX "blocked syscall with id %ld\n", syscall_id);
+            printf(PREFIX "blocked syscall with id %ld; description: %s\n", syscall_id, syscall_desc);
             REG_SYSCALL_ID(regs) = -1; // invalidate the syscall by changing the id to some garbage
             ptrace(PTRACE_SETREGS, child, NULL, &regs);
         }
