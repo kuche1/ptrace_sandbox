@@ -52,35 +52,34 @@
 #define ALLOW_WAIT 1
 #define ALLOW_UNKNOWN 1 // what to do if we get a syscall that we don't know
 
-int main(int argc, char* argv[]) {   
-    pid_t child;
+#define ERR_BAD_CMDLINE -1
+#define ERR_CANT_START_CHILD -2
 
-    if (argc == 1) {
-        printf(PREFIX "0 arguments passed\n");
-        exit(-1);
+int main(int argc, char* argv[]) {
+    if(argc == 1){
+        printf(PREFIX "you need to pass the application that you want to be run in the sandbox\n");
+        exit(ERR_BAD_CMDLINE);
     }
 
-    char* chargs[argc];
+    char* child_args[argc];
     int i = 0;
-
-    while (i < argc - 1) {
-        chargs[i] = argv[i+1];
+    while(i < argc - 1){
+        child_args[i] = argv[i+1];
         i++;
     }
-    chargs[i] = NULL;
+    child_args[i] = NULL;
 
-    child = fork();
-    if(child == 0) {
+    pid_t child = fork();
+    if(child == 0){
         ptrace(PTRACE_TRACEME, 0, NULL, NULL);
-        execvp(chargs[0], chargs);
+        execvp(child_args[0], child_args);
         printf(PREFIX "could not start child process\n");
-        return -2; // this should be unreachable
+        return ERR_CANT_START_CHILD;
     }
-
 
     int status;
 
-    while(waitpid(child, &status, 0) && ! WIFEXITED(status)) {
+    while(waitpid(child, &status, 0) && ! WIFEXITED(status)){
 
         struct user_regs_struct regs;
         ptrace(PTRACE_GETREGS, child, NULL, &regs);
