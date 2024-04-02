@@ -135,7 +135,8 @@ int main(int argc, char *argv[]){
     }
 
     // skip the child's call to `execvp`
-    // waitpid(child, 0, 0);
+    waitpid(child, 0, 0);
+    ptrace(PTRACE_SYSCALL, child, NULL, NULL);
 
     // make sure to kill the child if the parent exits
     ptrace(PTRACE_SETOPTIONS, child, 0, PTRACE_O_EXITKILL);
