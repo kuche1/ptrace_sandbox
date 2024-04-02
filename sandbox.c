@@ -22,6 +22,7 @@
 #define ERR_CANT_START_PROCESS -2
 #define ERR_MALLOC -3
 #define ERR_BAD_ENVVAR -4
+#define ERR_CANT_START_CHILD -5
 
 ////// rules
 
@@ -123,12 +124,24 @@ int main(int argc, char *argv[]){
     char **process_args = argv + 1;
 
     pid_t child = fork();
-    if(child == 0){
-        ptrace(PTRACE_TRACEME, 0, NULL, NULL);
+    if(child < 0){
+        printf(PREFIX "could not start child process\n");
+        return ERR_CANT_START_CHILD;
+    }else if(child == 0){
+        ptrace(PTRACE_TRACEME, 0, NULL, NULL); // code execution will be paused until parent allows us to continue
         execvp(process_to_run, process_args);
         printf(PREFIX "could not start process `%s`\n", process_to_run);
         return ERR_CANT_START_PROCESS;
     }
+
+    // skip the child's call to `execvp`
+    // waitpid(child, 0, 0);
+
+    // make sure to kill the child if the parent exits
+    ptrace(PTRACE_SETOPTIONS, child, 0, PTRACE_O_EXITKILL);
+
+    // also trace new processes created by the child
+    // ptrace(PTRACE_SETOPTIONS, child, 0, PTRACE_O_TRACECLONE | PTRACE_O_TRACEFORK | PTRACE_O_TRACEVFORK);
 
     // filter syscalls
 
