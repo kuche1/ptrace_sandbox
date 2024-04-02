@@ -47,6 +47,9 @@
 #define ALLOW_FILE_UTILS 1
 #define ALLOW_CHOWN 1
 #define ALLOW_RENAME 1
+//
+#define ALLOW_MKDIR 1
+#define ALLOW_SYMLINK 1
 
 // threading
 #define ALLOW_THREADING_CTL 1 // functions that don't start new threads but controll the current thread
@@ -54,6 +57,7 @@
 #define ALLOW_MEMORY_ALLOCATION 1
 #define ALLOW_EXECUTE_OTHER_PROGRAMS 1
 #define ALLOW_CHECK_PERMISSIONS_AND_INFO 1
+#define ALLOW_SET_PERMISSIONS 1
 #define ALLOW_FUTEX 1 // I don't see why we would ever want to disable this
 #define ALLOW_SET_MEMORY_PROTECTION 1 // gives processes the ability to change it's own memory protection
 #define ALLOW_SIGNALS 1
@@ -244,6 +248,7 @@ int main(int argc, char *argv[]){
 
             case SYS_brk:
             case SYS_mmap:
+            case SYS_mremap:
                 whitelisted = ALLOW_MEMORY_ALLOCATION;
                 break;
 
@@ -274,6 +279,7 @@ int main(int argc, char *argv[]){
                 break;
 
             case SYS_openat:
+            case SYS_umask:
                 whitelisted = ALLOW_OPEN;
                 break;
 
@@ -281,6 +287,8 @@ int main(int argc, char *argv[]){
             case SYS_dup2:
             case SYS_fcntl:
             case SYS_lseek:
+            case SYS_copy_file_range:
+            case SYS_flock:
                 whitelisted = ALLOW_FILE_UTILS;
                 break;
 
@@ -372,6 +380,7 @@ int main(int argc, char *argv[]){
             case SYS_ppoll:
             case SYS_pselect6:
             case SYS_epoll_create1:
+            case SYS_epoll_wait:
                 whitelisted = ALLOW_POLL_SELECT;
                 break;
             
@@ -384,6 +393,7 @@ int main(int argc, char *argv[]){
                 break;
             
             case SYS_rmdir:
+            case SYS_unlink:
             case SYS_unlinkat:
                 whitelisted = ALLOW_DELETING;
                 break;
@@ -394,6 +404,18 @@ int main(int argc, char *argv[]){
             
             case SYS_rename:
                 whitelisted = ALLOW_RENAME;
+                break;
+            
+            case SYS_mkdir:
+                whitelisted = ALLOW_MKDIR;
+                break;
+
+            case SYS_symlink:
+                whitelisted = ALLOW_SYMLINK;
+                break;
+            
+            case SYS_chmod:
+                whitelisted = ALLOW_SET_PERMISSIONS;
                 break;
 
             // this is probably caused by us
