@@ -70,6 +70,7 @@
 #define ALLOW_CLEAN_UP 1 // various syscalls used for cleaning up, example: close; disallowing this seems crazy
 #define ALLOW_PIPE 1
 #define ALLOW_WAIT 1
+#define ALLOW_OPTIMISED_BUF_MANUPULATION 1
 
 ////// funcions
 
@@ -270,6 +271,7 @@ int main(int argc, char *argv[]){
             case SYS_getpgrp:
             case SYS_fstatfs:
             case SYS_readlink:
+            case SYS_stat:
                 whitelisted = ALLOW_CHECK_PERMISSIONS_AND_INFO;
                 break;
 
@@ -416,6 +418,10 @@ int main(int argc, char *argv[]){
             
             case SYS_chmod:
                 whitelisted = ALLOW_SET_PERMISSIONS;
+                break;
+            
+            case SYS_writev:
+                whitelisted = ALLOW_OPTIMISED_BUF_MANUPULATION;
                 break;
 
             // this is probably caused by us
