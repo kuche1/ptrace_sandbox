@@ -38,7 +38,7 @@
 #define ALLOW_RENAME 1
 
 // threading
-#define ALLOW_THREADING 1
+#define ALLOW_THREADING_CTL 1 // functions that don't start new threads but controll the current thread
 
 #define ALLOW_MEMORY_ALLOCATION 1
 #define ALLOW_EXECUTE_OTHER_PROGRAMS 1
@@ -89,11 +89,9 @@ int get_intbool_env(char *name, int default_){
     }else if(strcmp(value, "n") == 0){
         return 0;
     }else{
-        printf(PREFIX "invalid value for %s: `%s`\n", name, value);
+        printf(PREFIX "invalid value for environment variable `%s` of `%s`; the only valid values are `y` and `n`\n", name, value);
         exit(ERR_BAD_ENVVAR);
     }
-
-    return  atoi(value); // this sucks; too bad I don't care;
 }
 
 int main(int argc, char *argv[]){
@@ -105,12 +103,19 @@ int main(int argc, char *argv[]){
         exit(ERR_BAD_CMDLINE);
     }
 
+    printf("\n");
+
     int allow_networking = get_intbool_env("NETWORKING", 0);
     printf(PREFIX "networking: %d\n", allow_networking);
 
     // this covers unknown syscalls
     int allow_unknown = get_intbool_env("UNKNOWN", 1);
     printf(PREFIX "unknown: %d\n", allow_unknown);
+
+    int allow_threading = get_intbool_env("THREADING", 1);
+    printf(PREFIX "threading: %d\n", allow_threading);
+
+    printf("\n");
 
     // run sandboxed process
 
@@ -189,6 +194,7 @@ int main(int argc, char *argv[]){
             
             case SYS_write:
                 whitelisted = ALLOW_WRITE;
+                syscall_desc = "write";
                 break;
 
             case SYS_close:
@@ -197,14 +203,19 @@ int main(int argc, char *argv[]){
                 whitelisted = ALLOW_CLEAN_UP;
                 break;
 
-            case SYS_arch_prctl:
             case SYS_gettid:
-            case SYS_set_tid_address:
             case SYS_prctl:
             case SYS_capget:
             case SYS_capset:
             case SYS_clone:
-                whitelisted = ALLOW_THREADING;
+                whitelisted = allow_threading;
+                syscall_desc = "threading";
+                break;
+
+            case SYS_arch_prctl:
+            case SYS_set_tid_address:
+                whitelisted = ALLOW_THREADING_CTL;
+                syscall_desc = "threading ctl";
                 break;
 
             case SYS_set_robust_list:
