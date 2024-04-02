@@ -114,8 +114,6 @@ int main(int argc, char *argv[]){
         exit(ERR_BAD_CMDLINE);
     }
 
-    printf("\n");
-
     int allow_networking = get_intbool_env("NETWORKING", 0);
     printf(PREFIX "networking: %d\n", allow_networking);
 
@@ -189,6 +187,7 @@ int main(int argc, char *argv[]){
 
     int return_code = 0;
     int running_processes = 1;
+    int at_least_1_syscall_was_blocked = 0;
 
     // while(waitpid(child, &status, 0) && ! WIFEXITED(status)){
     while(1){
@@ -410,6 +409,7 @@ int main(int argc, char *argv[]){
         }
 
         if(!whitelisted){
+            at_least_1_syscall_was_blocked = 1;
             printf(PREFIX "blocked syscall with id %ld; description: %s\n", syscall_id, syscall_desc);
             REG_SYSCALL_ID(regs) = -1; // invalidate the syscall by changing the id to some garbage
             ptrace(PTRACE_SETREGS, pid, NULL, &regs);
@@ -419,6 +419,9 @@ int main(int argc, char *argv[]){
     }
 
     // int child_exit_status = WEXITSTATUS(status);
+
+    printf("\n");
+    printf(PREFIX "at least 1 syscall blocked: %d\n", at_least_1_syscall_was_blocked);
 
     return return_code;
 }
