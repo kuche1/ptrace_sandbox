@@ -1,6 +1,8 @@
 
 // info
 //
+// man page: https://man7.org/linux/man-pages/man2/ptrace.2.html
+//
 // PTRACE_SYSCALL means: stop at the nextsyscall
 // PTRACE_CONT means: stop at the next signal
 
