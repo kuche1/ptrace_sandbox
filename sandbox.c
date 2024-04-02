@@ -1,4 +1,9 @@
 
+// info
+//
+// PTRACE_SYSCALL means: stop at the nextsyscall
+// PTRACE_CONT means: stop at the next signal
+
 #include <sys/ptrace.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -23,6 +28,9 @@
 #define ERR_MALLOC -3
 #define ERR_BAD_ENVVAR -4
 #define ERR_CANT_START_CHILD -5
+#define ERR_PTRACE_SET_OPTIONS -6
+#define ERR_PTRACE_CANT_CONT -7
+#define ERR_PTRACE_TRACEME -8
 
 ////// rules
 
@@ -120,42 +128,117 @@ int main(int argc, char *argv[]){
 
     // run sandboxed process
 
-    char *process_to_run = argv[1];
-    char **process_args = argv + 1;
+    {
 
-    pid_t child = fork();
-    if(child < 0){
-        printf(PREFIX "could not start child process\n");
-        return ERR_CANT_START_CHILD;
-    }else if(child == 0){
-        ptrace(PTRACE_TRACEME, 0, NULL, NULL); // code execution will be paused until parent allows us to continue
-        execvp(process_to_run, process_args);
-        printf(PREFIX "could not start process `%s`\n", process_to_run);
-        return ERR_CANT_START_PROCESS;
+        char *process_to_run = argv[1];
+        char **process_args = argv + 1;
+
+        pid_t child = fork();
+        if(child < 0){
+            printf(PREFIX "could not start child process\n");
+            return ERR_CANT_START_CHILD;
+
+        }else if(child == 0){
+
+            {
+                long err = ptrace(PTRACE_TRACEME, 0, NULL, NULL); // code execution will be paused until parent allows us to continue
+                if(err){
+                    printf(PREFIX "could not PTRACE_TRACEME\n");
+                    return ERR_PTRACE_TRACEME;
+                }
+            }
+
+            execvp(process_to_run, process_args);
+            printf(PREFIX "could not start process `%s`\n", process_to_run);
+            return ERR_CANT_START_PROCESS;
+        }
+
+        // 1. do not filter the child's call to `execvp`
+        // 2. `PTRACE_SETOPTIONS`
+        waitpid(child, 0, 0);
+
+        {
+            long err = ptrace(
+                PTRACE_SETOPTIONS,
+                child,
+                0,
+                PTRACE_O_EXITKILL | // make sure to kill the child if the parent exits
+                PTRACE_O_TRACECLONE | PTRACE_O_TRACEFORK | PTRACE_O_TRACEVFORK | // trace any new processes created by the child
+                PTRACE_O_TRACEEXIT // get notified when a process exits
+            );
+
+            if(err){
+                printf(PREFIX "could not set ptrace options\n");
+                return ERR_PTRACE_SET_OPTIONS;
+            }
+        }
+
+        {
+            long err = ptrace(PTRACE_SYSCALL, child, NULL, NULL);
+            if(err){
+                printf(PREFIX "could not continue ptrace\n");
+                return ERR_PTRACE_CANT_CONT;
+            }
+        }
+
     }
-
-    // skip the child's call to `execvp`
-    waitpid(child, 0, 0);
-    ptrace(PTRACE_SYSCALL, child, NULL, NULL);
-
-    // make sure to kill the child if the parent exits
-    ptrace(PTRACE_SETOPTIONS, child, 0, PTRACE_O_EXITKILL);
-
-    // also trace new processes created by the child
-    // ptrace(PTRACE_SETOPTIONS, child, 0, PTRACE_O_TRACECLONE | PTRACE_O_TRACEFORK | PTRACE_O_TRACEVFORK);
 
     // filter syscalls
 
-    int status;
+    int return_code = 0;
+    int running_processes = 1;
 
-    while(waitpid(child, &status, 0) && ! WIFEXITED(status)){
+    // while(waitpid(child, &status, 0) && ! WIFEXITED(status)){
+    while(1){
+
+        int status;
+        pid_t pid = waitpid(-1, &status, 0); // it kinda sucks that we're waiting for anyone, would be better if we actually traced the pids
+
+        if(status>>8 == (SIGTRAP | (PTRACE_EVENT_EXIT<<8))){
+
+            running_processes -= 1;
+
+            unsigned long event_message;
+            ptrace(PTRACE_GETEVENTMSG, pid, NULL, &event_message);
+
+            if(event_message){
+                // there's something wrong with the code that gets the return code
+                // so we won't return the thread's code
+                return_code = 1;
+            }
+
+            ptrace(PTRACE_SYSCALL, pid, NULL, NULL);
+
+            if(running_processes <= 0){
+                break;
+            }
+            continue;
+        }
+
+        if(
+            ( status>>8 == (SIGTRAP | (PTRACE_EVENT_CLONE<<8)) ) ||
+            ( status>>8 == (SIGTRAP | (PTRACE_EVENT_FORK<<8))  ) ||
+            ( status>>8 == (SIGTRAP | (PTRACE_EVENT_VFORK<<8)) )
+        ){
+            running_processes += 1;
+            ptrace(PTRACE_SYSCALL, pid, NULL, NULL);
+            continue;
+        }
+
+        // if(WIFEXITED(status)){
+        //     printf(PREFIX "child %d exited\n", pid);
+        //     getchar();
+        //     continue;
+        // }
 
         struct user_regs_struct regs;
-        ptrace(PTRACE_GETREGS, child, NULL, &regs);
+        ptrace(PTRACE_GETREGS, pid, NULL, &regs);
 
         long syscall_id = REG_SYSCALL_ID(regs);
         char *syscall_desc = "no description";
         int whitelisted = 0;
+
+        // printf(PREFIX "filtering syscall %ld\n", syscall_id);
 
         switch(syscall_id){
 
@@ -166,6 +249,7 @@ int main(int argc, char *argv[]){
 
             case SYS_execve:
                 whitelisted = ALLOW_EXECUTE_OTHER_PROGRAMS;
+                syscall_desc = "exec";
                 break;
 
             case SYS_access:
@@ -326,13 +410,13 @@ int main(int argc, char *argv[]){
         if(!whitelisted){
             printf(PREFIX "blocked syscall with id %ld; description: %s\n", syscall_id, syscall_desc);
             REG_SYSCALL_ID(regs) = -1; // invalidate the syscall by changing the id to some garbage
-            ptrace(PTRACE_SETREGS, child, NULL, &regs);
+            ptrace(PTRACE_SETREGS, pid, NULL, &regs);
         }
 
-        ptrace(PTRACE_SYSCALL, child, NULL, NULL);
+        ptrace(PTRACE_SYSCALL, pid, NULL, NULL);
     }
 
-    int child_exit_status = WEXITSTATUS(status);
+    // int child_exit_status = WEXITSTATUS(status);
 
-    return child_exit_status;
+    return return_code;
 }
