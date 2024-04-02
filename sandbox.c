@@ -87,13 +87,18 @@ int get_intbool_env(char *name, int default_){
         memcpy(actual_name + prefix_len, name, name_len);
         actual_name[prefix_len + name_len] = 0;
 
+        printf(PREFIX "%s: ", actual_name);
+
         value = getenv(actual_name);
         free(actual_name);
     }
 
     if(!value){
+        printf("%s (using default value since env var is not set)\n", (default_ ? "y" : "n") );
         return default_;
     }
+
+    printf("%s\n", value);
 
     if(strcmp(value, "y") == 0){
         return 1;
@@ -115,14 +120,8 @@ int main(int argc, char *argv[]){
     }
 
     int allow_networking = get_intbool_env("NETWORKING", 0);
-    printf(PREFIX "networking: %d\n", allow_networking);
-
-    // this covers unknown syscalls
-    int allow_unknown = get_intbool_env("UNKNOWN", 1);
-    printf(PREFIX "unknown: %d\n", allow_unknown);
-
+    int allow_unknown = get_intbool_env("UNKNOWN", 1); // this covers unknown syscalls
     int allow_threading = get_intbool_env("THREADING", 1);
-    printf(PREFIX "threading: %d\n", allow_threading);
 
     printf("\n");
 
