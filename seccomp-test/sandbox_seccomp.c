@@ -17,10 +17,13 @@
 #include <seccomp.h>
 #include <errno.h>
 #include <sys/socket.h>
+#include <limits.h>
 
 #define PREFIX "SETCCOMP: "
 
 #define DISABLE_NETWORKING 1
+
+#define DOMAIN_TYPE_MAX 100 // let's hope that there will never be more than 100 different AF_XYZ added
 
 #define RET_IS_0(fnc, ...) { \
     if(fnc(__VA_ARGS__) != 0){ \
@@ -55,6 +58,10 @@ int main(int argc, char *argv[]){
         SCMP_FLTATR_ACT_BADARCH,
         SCMP_ACT_ALLOW
     );
+
+    // set rules
+
+    // printf(PREFIX "settings rules...\n");
 
     if(DISABLE_NETWORKING){
         // https://linasm.sourceforge.net/docs/syscalls/network.php
@@ -105,41 +112,76 @@ int main(int argc, char *argv[]){
         //     python3 -c 'import socket; sock = socket.socket(socket.AF_INET)'
         //     python3 -c 'import socket; sock = socket.socket(socket.AF_INET6)'
 
-        RET_IS_0(
-            seccomp_rule_add,
-            ctx,
-            SCMP_ACT_ERRNO(EPERM),
-            SCMP_SYS(socket),
-            1,
-            SCMP_A0(SCMP_CMP_EQ, AF_INET)
-        );
+        // RET_IS_0(
+        //     seccomp_rule_add,
+        //     ctx,
+        //     SCMP_ACT_ERRNO(EPERM),
+        //     SCMP_SYS(socket),
+        //     1,
+        //     SCMP_A0(SCMP_CMP_EQ, AF_INET)
+        // );
 
-        RET_IS_0(
-            seccomp_rule_add,
-            ctx,
-            SCMP_ACT_ERRNO(EPERM),
-            SCMP_SYS(socketpair),
-            1,
-            SCMP_A0(SCMP_CMP_EQ, AF_INET)
-        );
+        // RET_IS_0(
+        //     seccomp_rule_add,
+        //     ctx,
+        //     SCMP_ACT_ERRNO(EPERM),
+        //     SCMP_SYS(socketpair),
+        //     1,
+        //     SCMP_A0(SCMP_CMP_EQ, AF_INET)
+        // );
 
-        RET_IS_0(
-            seccomp_rule_add,
-            ctx,
-            SCMP_ACT_ERRNO(EPERM),
-            SCMP_SYS(socket),
-            1,
-            SCMP_A0(SCMP_CMP_EQ, AF_INET6)
-        );
+        // RET_IS_0(
+        //     seccomp_rule_add,
+        //     ctx,
+        //     SCMP_ACT_ERRNO(EPERM),
+        //     SCMP_SYS(socket),
+        //     1,
+        //     SCMP_A0(SCMP_CMP_EQ, AF_INET6)
+        // );
 
-        RET_IS_0(
-            seccomp_rule_add,
-            ctx,
-            SCMP_ACT_ERRNO(EPERM),
-            SCMP_SYS(socketpair),
-            1,
-            SCMP_A0(SCMP_CMP_EQ, AF_INET6)
-        );
+        // RET_IS_0(
+        //     seccomp_rule_add,
+        //     ctx,
+        //     SCMP_ACT_ERRNO(EPERM),
+        //     SCMP_SYS(socketpair),
+        //     1,
+        //     SCMP_A0(SCMP_CMP_EQ, AF_INET6)
+        // );
+
+
+        // disable everything but local sockets
+        // you can test this with:
+        //     python3 -c 'import socket; sock = socket.socket(socket.AF_UNIX)'
+        //     python3 -c 'import socket; sock = socket.socket(socket.AF_INET)'
+        //     python3 -c 'import socket; sock = socket.socket(socket.AF_INET6)'
+
+        for(int domain_type=0; domain_type<DOMAIN_TYPE_MAX; ++domain_type){
+
+            switch(domain_type){
+                case AF_LOCAL: // AF_LOCAL also convers AF_UNIX
+                case AF_BRIDGE:
+                case AF_NETLINK:
+                    continue;
+            }
+
+            RET_IS_0(
+                seccomp_rule_add,
+                ctx,
+                SCMP_ACT_ERRNO(EPERM),
+                SCMP_SYS(socket),
+                1,
+                SCMP_A0(SCMP_CMP_EQ, domain_type)
+            );
+
+            RET_IS_0(
+                seccomp_rule_add,
+                ctx,
+                SCMP_ACT_ERRNO(EPERM),
+                SCMP_SYS(socketpair),
+                1,
+                SCMP_A0(SCMP_CMP_EQ, domain_type)
+            );
+        }
 
     }
 
@@ -147,6 +189,8 @@ int main(int argc, char *argv[]){
         perror(PREFIX "seccomp_load failed");
         exit(-1);
     }
+
+    // printf(PREFIX "rules set\n");
 
     // start requested process
 
