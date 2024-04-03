@@ -60,7 +60,7 @@
 #define ALLOW_SET_PERMISSIONS 1
 #define ALLOW_FUTEX 1 // I don't see why we would ever want to disable this
 #define ALLOW_SET_MEMORY_PROTECTION 1 // gives processes the ability to change it's own memory protection
-#define ALLOW_SIGNALS 1
+#define ALLOW_SIGNALS 1 // note that this also includes SIGTERM and SIGKILL
 #define ALLOW_IOCTL 1 // disabling this seems silly
 #define ALLOW_RESOURCE_LIMITS 1
 #define ALLOW_RANDOM 1
@@ -71,6 +71,11 @@
 #define ALLOW_PIPE 1
 #define ALLOW_WAIT 1
 #define ALLOW_OPTIMISED_BUF_MANUPULATION 1
+#define ALLOW_LOADING_UNLOADING_KERNEL_MODULES 1
+#define ALLOW_SLEEP 1
+#define ALLOW_GET_SCHED 1
+#define ALLOW_SET_SCHED 1
+#define ALLOW_RESTART_SYSCALL 1 // restart syscall after interrupt
 
 ////// funcions
 
@@ -271,17 +276,28 @@ int main(int argc, char *argv[]){
             case SYS_getpgrp:
             case SYS_fstatfs:
             case SYS_readlink:
+            case SYS_readlinkat:
             case SYS_stat:
+            case SYS_lstat:
+            case SYS_getresuid:
+            case SYS_getresgid:
+            case SYS_statx:
+            case SYS_faccessat2:
+            case SYS_sysinfo:
+            case SYS_getxattr:
                 whitelisted = ALLOW_CHECK_PERMISSIONS_AND_INFO;
                 break;
 
             case SYS_chdir:
+            case SYS_fchdir:
             case SYS_getcwd:
                 whitelisted = ALLOW_CHDIR_GETCWD;
                 break;
 
             case SYS_openat:
+            case SYS_open:
             case SYS_umask:
+            case SYS_fadvise64:
                 whitelisted = ALLOW_OPEN;
                 break;
 
@@ -308,6 +324,7 @@ int main(int argc, char *argv[]){
             case SYS_close:
             case SYS_munmap:
             case SYS_exit_group:
+            case SYS_exit:
                 whitelisted = ALLOW_CLEAN_UP;
                 break;
 
@@ -338,6 +355,8 @@ int main(int argc, char *argv[]){
             case SYS_rt_sigprocmask:
             case SYS_rt_sigaction:
             case SYS_pause:
+            case SYS_kill:
+            case SYS_tgkill:
                 whitelisted = ALLOW_SIGNALS;
                 break;
 
@@ -356,6 +375,7 @@ int main(int argc, char *argv[]){
             case SYS_sendto:
             case SYS_getsockopt:
             case SYS_bind:
+            case SYS_sendmsg:
                 whitelisted = allow_networking;
                 syscall_desc = "networking";
                 break;
@@ -383,6 +403,7 @@ int main(int argc, char *argv[]){
             case SYS_pselect6:
             case SYS_epoll_create1:
             case SYS_epoll_wait:
+            case SYS_epoll_ctl:
                 whitelisted = ALLOW_POLL_SELECT;
                 break;
             
@@ -422,6 +443,27 @@ int main(int argc, char *argv[]){
             
             case SYS_writev:
                 whitelisted = ALLOW_OPTIMISED_BUF_MANUPULATION;
+                break;
+            
+            case SYS_init_module:
+            case SYS_delete_module:
+                whitelisted = ALLOW_LOADING_UNLOADING_KERNEL_MODULES;
+                break;
+            
+            case SYS_clock_nanosleep:
+                whitelisted = ALLOW_SLEEP;
+                break;
+
+            case SYS_ioprio_get:
+                whitelisted = ALLOW_GET_SCHED;
+                break;
+
+            case SYS_ioprio_set:
+                whitelisted = ALLOW_SET_SCHED;
+                break;
+            
+            case SYS_restart_syscall:
+                whitelisted = ALLOW_RESTART_SYSCALL;
                 break;
 
             // this is probably caused by us
