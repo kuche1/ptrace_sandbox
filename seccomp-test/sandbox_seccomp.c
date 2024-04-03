@@ -77,6 +77,7 @@ int main(int argc, char *argv[]){
         // seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), SCMP_SYS(socketpair), 1, SCMP_A0(SCMP_CMP_EQ, AF_INET6));
 
 
+        // UNTESTED vvvvvvv
 
         // block all
         seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), SCMP_SYS(socket),     0);
