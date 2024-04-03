@@ -15,15 +15,19 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/socket.h>
 
 #if __WORDSIZE == 64
 #define REG_SYSCALL_ID(reg) reg.orig_rax // we use this is we want to modify the syscall ID before execution
+#define REG_SYSCALL_ARG0(reg) reg.rdi // TODO tova se si mislq 4e trqbva da e orig_rdi
 #define REG_SYSCALL_RET(reg) reg.rax // we use this if we want to change the return code
 #else
 #error only 64bit is supported
 #endif
 
-#define PREFIX "SANDBOX: "
+#define PREFIX "SANDBOX_PTRACE: "
+#define PRINT_BLOCKED 1
+#define PRINT_UNKNOWN 0
 
 #define ERR_BAD_CMDLINE -1
 #define ERR_CANT_START_PROCESS -2
@@ -52,10 +56,13 @@
 #define ALLOW_MKNOD 1
 #define ALLOW_SYMLINK 1
 
+// networking
+#define ALLOW_NETWORKING_MISC 1
+
 // threading
 #define ALLOW_THREADING_CTL 1 // functions that don't start new threads but controll the current thread
 
-#define ALLOW_MEMORY_ALLOCATION 1
+#define ALLOW_MEMORY_OPERATIONS 1
 #define ALLOW_EXECUTE_OTHER_PROGRAMS 1
 #define ALLOW_CHECK_PERMISSIONS_AND_INFO 1
 #define ALLOW_SET_PERMISSIONS 1
@@ -71,12 +78,13 @@
 #define ALLOW_CLEAN_UP 1 // various syscalls used for cleaning up, example: close; disallowing this seems crazy
 #define ALLOW_PIPE 1
 #define ALLOW_WAIT 1
-#define ALLOW_OPTIMISED_BUF_MANUPULATION 1
 #define ALLOW_LOADING_UNLOADING_KERNEL_MODULES 1
 #define ALLOW_SLEEP 1
 #define ALLOW_GET_SCHED 1
 #define ALLOW_SET_SCHED 1
+#define ALLOW_SCHED_YIELD 1
 #define ALLOW_RESTART_SYSCALL 1 // restart syscall after interrupt
+#define ALLOW_BPF 1 // something to do with filtering
 
 ////// funcions
 
@@ -256,7 +264,13 @@ int main(int argc, char *argv[]){
             case SYS_brk:
             case SYS_mmap:
             case SYS_mremap:
-                whitelisted = ALLOW_MEMORY_ALLOCATION;
+            case SYS_mlock:
+            case SYS_mlock2:
+            case SYS_munlock:
+            case SYS_mlockall:
+            case SYS_munlockall:
+            case SYS_writev:
+                whitelisted = ALLOW_MEMORY_OPERATIONS;
                 break;
 
             case SYS_execve:
@@ -299,6 +313,8 @@ int main(int argc, char *argv[]){
             case SYS_open:
             case SYS_umask:
             case SYS_fadvise64:
+            case SYS_name_to_handle_at:
+            case SYS_open_by_handle_at:
                 whitelisted = ALLOW_OPEN;
                 break;
 
@@ -335,6 +351,8 @@ int main(int argc, char *argv[]){
             case SYS_capset:
             case SYS_clone:
             case SYS_clone3:
+            case SYS_process_vm_readv:
+            case SYS_process_vm_writev:
                 whitelisted = allow_threading;
                 syscall_desc = "threading";
                 break;
@@ -367,20 +385,63 @@ int main(int argc, char *argv[]){
                 whitelisted = ALLOW_IOCTL;
                 break;
 
-            case SYS_getpeername:
+            // https://linasm.sourceforge.net/docs/syscalls/network.php
+
             case SYS_socket:
-            case SYS_connect:
-            case SYS_setsockopt:
-            case SYS_sendmmsg:
-            case SYS_recvfrom:
-            case SYS_getsockname:
-            case SYS_recvmsg:
-            case SYS_sendto:
-            case SYS_getsockopt:
-            case SYS_bind:
-            case SYS_sendmsg:
+            case SYS_socketpair:
+                // https://man7.org/linux/man-pages/man2/socket.2.html
+                {
+                    int domain = REG_SYSCALL_ARG0(regs);
+                    if(allow_networking){
+                        whitelisted = 1;
+                        syscall_desc = "create socket";
+                    }else{
+
+                        switch(domain){
+
+                            case AF_LOCAL: // this also includes AF_UNIX
+                            case AF_BRIDGE:
+                            case AF_NETLINK:
+                                whitelisted = 1;
+                                syscall_desc = "create socket; local";
+                                break;
+                            
+                            case AF_INET:
+                            case AF_DECnet:
+                            case AF_ROSE:
+                                break;
+
+                            default:
+                                printf(PREFIX "blocked non-local create socket of domain %d\n", domain);
+                                syscall_desc = "create socket; non-local";
+                                break;
+                        }
+                    }
+                }
+                break;
+
+            case SYS_sethostname:
+            case SYS_setdomainname:
                 whitelisted = allow_networking;
                 syscall_desc = "networking";
+                break;
+
+            case SYS_bind:
+            case SYS_listen:
+            case SYS_accept:
+            case SYS_accept4:
+            case SYS_sendto:
+            case SYS_sendmsg:
+            case SYS_sendmmsg:
+            case SYS_recvfrom:
+            case SYS_recvmsg:
+            case SYS_recvmmsg:
+            case SYS_setsockopt:
+            case SYS_getsockopt:
+            case SYS_connect:
+            case SYS_getsockname:
+            case SYS_getpeername:
+                whitelisted = ALLOW_NETWORKING_MISC;
                 break;
 
             case SYS_prlimit64:
@@ -446,10 +507,6 @@ int main(int argc, char *argv[]){
                 whitelisted = ALLOW_SET_PERMISSIONS;
                 break;
             
-            case SYS_writev:
-                whitelisted = ALLOW_OPTIMISED_BUF_MANUPULATION;
-                break;
-            
             case SYS_init_module:
             case SYS_delete_module:
             case SYS_create_module:
@@ -473,6 +530,10 @@ int main(int argc, char *argv[]){
             case SYS_sched_setaffinity:
                 whitelisted = ALLOW_SET_SCHED;
                 break;
+
+            case SYS_sched_yield:
+                whitelisted = ALLOW_SCHED_YIELD;
+                break;
             
             case SYS_restart_syscall:
                 whitelisted = ALLOW_RESTART_SYSCALL;
@@ -482,6 +543,10 @@ int main(int argc, char *argv[]){
             case SYS_mknodat:
                 whitelisted = ALLOW_MKNOD;
                 break;
+            
+            case SYS_bpf:
+                whitelisted = ALLOW_BPF;
+                break;
 
             // this is probably caused by us
             case -1:
@@ -489,19 +554,25 @@ int main(int argc, char *argv[]){
                 break;
             
             default:
+#if PRINT_UNKNOWN
                 printf(PREFIX "unknown syscall with id %ld\n", syscall_id);
+#endif
                 whitelisted = allow_unknown;
                 break;
         }
 
         if(!whitelisted){
             at_least_1_syscall_was_blocked = 1;
+#if PRINT_BLOCKED
             printf(PREFIX "blocked syscall with id %ld; description: %s\n", syscall_id, syscall_desc);
+#endif
             REG_SYSCALL_ID(regs) = -1; // invalidate the syscall by changing the id to some garbage
             ptrace(PTRACE_SETREGS, pid, NULL, &regs);
         }
 
         ptrace(PTRACE_SYSCALL, pid, NULL, NULL);
+
+        syscall_desc = syscall_desc; // stop the compiler from complaining
     }
 
     // int child_exit_status = WEXITSTATUS(status);
