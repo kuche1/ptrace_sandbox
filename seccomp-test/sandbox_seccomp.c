@@ -48,6 +48,14 @@ int main(int argc, char *argv[]){
         exit(-1);
     }
 
+    // do not send SIGSYS upon coming across an invalid syscall
+    RET_IS_0(
+        seccomp_attr_set,
+        ctx,
+        SCMP_FLTATR_ACT_BADARCH,
+        SCMP_ACT_ALLOW
+    );
+
     if(DISABLE_NETWORKING){
         // https://linasm.sourceforge.net/docs/syscalls/network.php
 
