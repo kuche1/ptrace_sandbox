@@ -49,6 +49,7 @@
 #define ALLOW_RENAME 1
 //
 #define ALLOW_MKDIR 1
+#define ALLOW_MKNOD 1
 #define ALLOW_SYMLINK 1
 
 // threading
@@ -333,6 +334,7 @@ int main(int argc, char *argv[]){
             case SYS_capget:
             case SYS_capset:
             case SYS_clone:
+            case SYS_clone3:
                 whitelisted = allow_threading;
                 syscall_desc = "threading";
                 break;
@@ -357,6 +359,7 @@ int main(int argc, char *argv[]){
             case SYS_pause:
             case SYS_kill:
             case SYS_tgkill:
+            case SYS_sigaltstack:
                 whitelisted = ALLOW_SIGNALS;
                 break;
 
@@ -395,6 +398,8 @@ int main(int argc, char *argv[]){
             case SYS_setuid:
             case SYS_setfsuid:
             case SYS_setfsgid:
+            case SYS_setreuid:
+            case SYS_setregid:
                 whitelisted = ALLOW_SETUID;
                 break;
 
@@ -447,6 +452,7 @@ int main(int argc, char *argv[]){
             
             case SYS_init_module:
             case SYS_delete_module:
+            case SYS_create_module:
                 whitelisted = ALLOW_LOADING_UNLOADING_KERNEL_MODULES;
                 break;
             
@@ -455,15 +461,26 @@ int main(int argc, char *argv[]){
                 break;
 
             case SYS_ioprio_get:
+            case SYS_sched_getaffinity:
+            case SYS_sched_getscheduler:
+            case SYS_sched_get_priority_max:
+            case SYS_sched_get_priority_min:
+            case SYS_sched_rr_get_interval:
                 whitelisted = ALLOW_GET_SCHED;
                 break;
 
             case SYS_ioprio_set:
+            case SYS_sched_setaffinity:
                 whitelisted = ALLOW_SET_SCHED;
                 break;
             
             case SYS_restart_syscall:
                 whitelisted = ALLOW_RESTART_SYSCALL;
+                break;
+            
+            case SYS_mknod:
+            case SYS_mknodat:
+                whitelisted = ALLOW_MKNOD;
                 break;
 
             // this is probably caused by us
