@@ -17,7 +17,6 @@
 #include <seccomp.h>
 #include <errno.h>
 #include <sys/socket.h>
-#include <limits.h>
 
 #define PREFIX "SETCCOMP: "
 
