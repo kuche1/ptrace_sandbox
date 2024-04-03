@@ -157,7 +157,7 @@ int main(int argc, char *argv[]){
         for(int domain_type=0; domain_type<DOMAIN_TYPE_MAX; ++domain_type){
 
             switch(domain_type){
-                case AF_LOCAL: // AF_LOCAL also convers AF_UNIX
+                case AF_LOCAL: // AF_LOCAL also covers AF_UNIX
                 case AF_BRIDGE:
                 case AF_NETLINK:
                     continue;
