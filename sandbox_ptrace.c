@@ -422,6 +422,7 @@ int main(int argc, char *argv[]){
 
             case SYS_sethostname:
             case SYS_setdomainname:
+            case SYS_connect: // TODO this needs some filtering
                 whitelisted = allow_networking;
                 syscall_desc = "networking";
                 break;
@@ -438,7 +439,6 @@ int main(int argc, char *argv[]){
             case SYS_recvmmsg:
             case SYS_setsockopt:
             case SYS_getsockopt:
-            case SYS_connect:
             case SYS_getsockname:
             case SYS_getpeername:
                 whitelisted = ALLOW_NETWORKING_MISC;
