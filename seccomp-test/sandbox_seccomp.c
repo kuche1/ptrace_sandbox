@@ -10,6 +10,9 @@
 // if we want to kill the process upon a bad syscall, use SCMP_ACT_KILL
 // if we only want to invalidate and set errno, use SCMP_ACT_ERRNO(EPERM); for more errnos see https://man7.org/linux/man-pages/man3/errno.3.html
 // if we want to do nothing use SCMP_ACT_ALLOW
+//
+// some network syscalls
+// https://linasm.sourceforge.net/docs/syscalls/network.php
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -60,93 +63,7 @@ int main(int argc, char *argv[]){
 
     // set rules
 
-    // printf(PREFIX "settings rules...\n");
-
     if(DISABLE_NETWORKING){
-        // https://linasm.sourceforge.net/docs/syscalls/network.php
-
-        // // misc
-        // seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), SCMP_SYS(socket), 0);
-        // seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), SCMP_SYS(socketpair), 0);
-        // seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), SCMP_SYS(setsockopt), 0);
-        // seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), SCMP_SYS(getsockopt), 0);
-        // seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), SCMP_SYS(getsockname), 0);
-        // seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), SCMP_SYS(getpeername), 0);
-        // seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), SCMP_SYS(sethostname), 0);
-        // seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), SCMP_SYS(setdomainname), 0);
-        // seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), SCMP_SYS(bpf), 0);
-
-        // // inbound init
-        // seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), SCMP_SYS(bind), 0);
-        // seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), SCMP_SYS(listen), 0);
-        // seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), SCMP_SYS(accept), 0);
-        // seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), SCMP_SYS(accept4), 0);
-        // // inbound
-        // seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), SCMP_SYS(recvfrom), 0);
-        // seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), SCMP_SYS(recvmsg), 0);
-        // seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), SCMP_SYS(recvmmsg), 0);
-
-        // // outbound init
-        // seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), SCMP_SYS(connect), 0);
-        // // outbound
-        // seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), SCMP_SYS(sendto), 0);
-        // seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), SCMP_SYS(sendmsg), 0);
-        // seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), SCMP_SYS(sendmmsg), 0);
-
-
-
-        // // block ipv4
-        // seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), SCMP_SYS(socket),     1, SCMP_A0(SCMP_CMP_EQ, AF_INET));
-        // seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), SCMP_SYS(socketpair), 1, SCMP_A0(SCMP_CMP_EQ, AF_INET));
-
-        // // block ipv6
-        // seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), SCMP_SYS(socket),     1, SCMP_A0(SCMP_CMP_EQ, AF_INET6));
-        // seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), SCMP_SYS(socketpair), 1, SCMP_A0(SCMP_CMP_EQ, AF_INET6));
-
-
-
-        // disable ipv4 and ipv6
-        // you can test this with:
-        //     python3 -c 'import socket; sock = socket.socket(socket.AF_UNIX)'
-        //     python3 -c 'import socket; sock = socket.socket(socket.AF_INET)'
-        //     python3 -c 'import socket; sock = socket.socket(socket.AF_INET6)'
-
-        // RET_IS_0(
-        //     seccomp_rule_add,
-        //     ctx,
-        //     SCMP_ACT_ERRNO(EPERM),
-        //     SCMP_SYS(socket),
-        //     1,
-        //     SCMP_A0(SCMP_CMP_EQ, AF_INET)
-        // );
-
-        // RET_IS_0(
-        //     seccomp_rule_add,
-        //     ctx,
-        //     SCMP_ACT_ERRNO(EPERM),
-        //     SCMP_SYS(socketpair),
-        //     1,
-        //     SCMP_A0(SCMP_CMP_EQ, AF_INET)
-        // );
-
-        // RET_IS_0(
-        //     seccomp_rule_add,
-        //     ctx,
-        //     SCMP_ACT_ERRNO(EPERM),
-        //     SCMP_SYS(socket),
-        //     1,
-        //     SCMP_A0(SCMP_CMP_EQ, AF_INET6)
-        // );
-
-        // RET_IS_0(
-        //     seccomp_rule_add,
-        //     ctx,
-        //     SCMP_ACT_ERRNO(EPERM),
-        //     SCMP_SYS(socketpair),
-        //     1,
-        //     SCMP_A0(SCMP_CMP_EQ, AF_INET6)
-        // );
-
 
         // disable everything but local sockets
         // you can test this with:
@@ -189,8 +106,6 @@ int main(int argc, char *argv[]){
         exit(-1);
     }
 
-    // printf(PREFIX "rules set\n");
-
     // start requested process
 
     {
@@ -202,10 +117,7 @@ int main(int argc, char *argv[]){
         exit(-1);
     }
 
-    // unreachable 
-
-    // printf("asdfg\n");
-
+    // if we were to lift the restrictions, we would use this
     // seccomp_release(ctx);
 
     return 0;
