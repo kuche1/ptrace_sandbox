@@ -108,11 +108,11 @@ void run_sandboxed_process(char *process_to_run, char **process_args){
         exit(-1);
 
     }else if(child == 0){
+
         ASSERT_0(
-            ptrace(PTRACE_TRACEME, 0, NULL, NULL) // code execution will be paused until parent allows us to continue
+            ptrace(PTRACE_TRACEME, 0, NULL, NULL) // I tought that code execution will be paused until parent allows us to continue, but in fact this does not happen
         );
 
-        // TODO seccomp code, this might actually fuck with the code below in case of a syscall
         set_seccomp_rules();
 
         execvp(process_to_run, process_args);
@@ -120,7 +120,7 @@ void run_sandboxed_process(char *process_to_run, char **process_args){
         exit(-1);
     }
 
-    // 1. do not filter the child's call to `execvp`
+    // 1. do not filter the child's call to `execvp`; I don't know why but this still works even after adding the seccomp rules
     // 2. `PTRACE_SETOPTIONS`
     waitpid(child, 0, 0);
 
