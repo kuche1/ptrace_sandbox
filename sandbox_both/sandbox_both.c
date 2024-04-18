@@ -24,7 +24,7 @@
 // yeah, this is bad, but I don't care
 #include "get_syscall_name.c"
 
-// CPU registers
+////// CPU registers
 
 #if __WORDSIZE == 64
 #define REG_SYSCALL_ID(reg) reg.orig_rax // we use this is we want to modify the syscall ID before execution
@@ -37,16 +37,16 @@
 #error only 64bit is supported
 #endif
 
-// printing
+////// printing
 
 #define PREFIX "SANDBOX_BOTH: " // all prints should start with this
 #define PRINT_BLOCKED_SYSCALLS 0
 
-// defines will rarely get changed
+////// defines will rarely get changed
 
 #define PATH_MAXLEN (4096+100)
 
-// defines that might often get changed
+////// defines that might often get changed
 
 #define DISABLE_NETWORKING 1
 #define DISABLE_OPENING 1 // TODO this actually does not work
