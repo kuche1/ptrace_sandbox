@@ -92,6 +92,21 @@ void set_seccomp_rules(){
 
     }
 
+    // // rules: harmless by themselves
+
+    // ASSERT_0(
+    //     seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(read), 0)
+    // );
+    // ASSERT_0(
+    //     seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(write), 0)
+    // );
+
+    // // rules: clean up
+
+    // ASSERT_0(
+    //     seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(exit_group), 0)
+    // );
+
     // load rules
 
     // printf("sleep b4 rule load\n");
@@ -159,6 +174,8 @@ void run_sandboxed_process(char *process_to_run, char **process_args){
     ASSERT_0(
         ptrace(PTRACE_CONT, child, NULL, NULL)
     );
+
+    // TODO allow everything up to execvp
 }
 
 int filter_syscalls(){
@@ -216,7 +233,7 @@ int filter_syscalls(){
         }else{
             // still no idea what this is; it keeps happening sometimes
             // printf("wtf status>>8=%x SIGTRAP=%x pid=%d hui0=%d\n", status>>8, SIGTRAP, pid,   status>>8 == (SIGTRAP | (PTRACE_EVENT_VFORK_DONE<<8))   );
-            printf("wtf\n");
+            // printf("wtf\n");
             ptrace(PTRACE_CONT, pid, NULL, NULL);
             continue;
         }
