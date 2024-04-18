@@ -312,9 +312,10 @@ int main(int argc, char *argv[]){
             }
             break;
 
-            default:
+            default:{
                 printf(PREFIX "unknown syscall with id %ld\n", syscall_id);
-                break;
+            }
+            break;
         }
 
         if(!syscall_allow){
