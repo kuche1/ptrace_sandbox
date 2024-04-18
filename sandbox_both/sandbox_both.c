@@ -21,6 +21,9 @@
 #include <errno.h>
 #include <linux/types.h>
 
+// yeah, this is bad, but I don't care
+#include "get_syscall_name.c"
+
 #if __WORDSIZE == 64
 #define REG_SYSCALL_ID(reg) reg.orig_rax // we use this is we want to modify the syscall ID before execution
 #define REG_SYSCALL_ARG0(reg) reg.rdi // TODO tova se si mislq 4e trqbva da e orig_rdi
@@ -324,7 +327,8 @@ int filter_syscalls(){
             break;
 
             default:{
-                printf(PREFIX "unknown syscall with id %ld\n", syscall_id);
+                char *name = get_syscall_name(syscall_id);
+                printf(PREFIX "unhandled syscall `%s` with id is %ld\n", name, syscall_id);
             }
             break;
         }
