@@ -1,4 +1,50 @@
 
+// mode really should be `umode_t` but it seems that I can't access this since I'm in user space
+void handle_openat(pid_t pid, int dir_fd, char *pidmem_filename, __attribute__((unused)) int flags, __attribute__((unused)) mode_t mode){
+    // get actual filename
+    char filename[PATH_MAXLEN+1] = {0}; // we don't need to compensate for the long here, we've already done that in the macro definition
+    size_t filename_len = 0;
+
+    for(char *mem_to_read = pidmem_filename;;){
+
+        errno = 0;
+        long chunk = ptrace(PTRACE_PEEKDATA, pid, mem_to_read, NULL);
+        if(errno != 0){
+            // TODO this sucks, if this fails probably the process has exited
+            perror(PREFIX "PTRACE_PEEKDATA error; this needs to be fixed at some point");
+            exit(-1);
+        }
+
+        if(sizeof(filename) - filename_len -1 < sizeof(chunk)){
+            // TODO this sucks because someone could fill a buffer with bullshit just to fuck with us
+            perror(PREFIX "not enough mem; this needs to be fixed at some point");
+            exit(-1);
+        }
+
+        memcpy(filename+filename_len, &chunk, sizeof(chunk)); // copy the whole chunk because I don't care
+        filename_len += sizeof(chunk);
+        mem_to_read += sizeof(chunk);
+
+        char *chunk_str = (char *)&chunk;
+        int reached_the_end = 0;
+
+        for(size_t i=0; i<sizeof(chunk); ++i){
+            char ch = chunk_str[i];
+            // printf(PREFIX "ch=%c\n", ch);
+            if(ch == 0){
+                reached_the_end = 1;
+                break;
+            }
+        }
+
+        if(reached_the_end){
+            break;
+        }
+    }
+
+    printf(PREFIX "SYS_openat: dir_fd=%d filename=%s\n", dir_fd, filename);
+}
+
 int filter_syscalls(){
     int return_code = 0;
     int running_processes = 1;
@@ -98,57 +144,26 @@ int filter_syscalls(){
             }
             break;
             
-            // TODO SYS_open
+            case SYS_open:{
+                syscall_allow = 1;
+
+                char *filename = (char *) REG_SYSCALL_ARG0(regs);
+                int flags = REG_SYSCALL_ARG1(regs);
+                mode_t mode = REG_SYSCALL_ARG2(regs);
+
+                handle_openat(pid, AT_FDCWD, filename, flags, mode);
+            }
+            break;
+
             case SYS_openat:{
                 syscall_allow = 1;
 
-                int dirfd = REG_SYSCALL_ARG0(regs);
-                char *pidmem_filename = (char *)REG_SYSCALL_ARG1(regs);
-                // int flags = REG_SYSCALL_ARG2(regs);
-                // umode_t mode = REG_SYSCALL_ARG3(regs);
+                int dir_fd = REG_SYSCALL_ARG0(regs);
+                char *filename = (char *)REG_SYSCALL_ARG1(regs);
+                int flags = REG_SYSCALL_ARG2(regs);
+                mode_t mode = REG_SYSCALL_ARG3(regs);
 
-                // get actual filename
-                char filename[PATH_MAXLEN+1] = {0}; // we don't need to compensate for the long here, we've already done that in the macro definition
-                size_t filename_len = 0;
-
-                for(char *mem_to_read = pidmem_filename;;){
-
-                    errno = 0;
-                    long chunk = ptrace(PTRACE_PEEKDATA, pid, mem_to_read, NULL);
-                    if(errno != 0){
-                        // TODO this sucks, if this fails probably the process has exited
-                        perror(PREFIX "PTRACE_PEEKDATA error; this needs to be fixed at some point");
-                        exit(-1);
-                    }
-
-                    if(sizeof(filename) - filename_len -1 < sizeof(chunk)){
-                        // TODO this sucks because someone could fill a buffer with bullshit just to fuck with us
-                        perror(PREFIX "not enough mem; this needs to be fixed at some point");
-                        exit(-1);
-                    }
-
-                    memcpy(filename+filename_len, &chunk, sizeof(chunk)); // copy the whole chunk because I don't care
-                    filename_len += sizeof(chunk);
-                    mem_to_read += sizeof(chunk);
-
-                    char *chunk_str = (char *)&chunk;
-                    int reached_the_end = 0;
-
-                    for(size_t i=0; i<sizeof(chunk); ++i){
-                        char ch = chunk_str[i];
-                        // printf(PREFIX "ch=%c\n", ch);
-                        if(ch == 0){
-                            reached_the_end = 1;
-                            break;
-                        }
-                    }
-
-                    if(reached_the_end){
-                        break;
-                    }
-                }
-
-                printf(PREFIX "SYS_openat: dirfd=%d filename=%s\n", dirfd, filename);
+                handle_openat(pid, dir_fd, filename, flags, mode);
             }
             break;
 

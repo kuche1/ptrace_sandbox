@@ -20,6 +20,7 @@
 #include <seccomp.h> // sudo apt install libseccomp-dev
 #include <errno.h>
 #include <linux/types.h>
+#include <fcntl.h>
 
 ////// CPU registers
 
@@ -27,8 +28,8 @@
 #define REG_SYSCALL_ID(reg) reg.orig_rax // we use this is we want to modify the syscall ID before execution
 #define REG_SYSCALL_ARG0(reg) reg.rdi // TODO tova se si mislq 4e trqbva da e orig_rdi
 #define REG_SYSCALL_ARG1(reg) reg.rsi
-// #define REG_SYSCALL_ARG2(reg) reg.rdx
-// #define REG_SYSCALL_ARG3(reg) reg.r10
+#define REG_SYSCALL_ARG2(reg) reg.rdx
+#define REG_SYSCALL_ARG3(reg) reg.r10
 #define REG_SYSCALL_RET(reg) reg.rax // we use this if we want to change the return code
 #else
 #error only 64bit is supported
