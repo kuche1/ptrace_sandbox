@@ -1,6 +1,12 @@
 
-// mode really should be `umode_t` but it seems that I can't access this since I'm in user space
-void handle_openat(pid_t pid, int dir_fd, char *pidmem_filename, __attribute__((unused)) int flags, __attribute__((unused)) mode_t mode){
+// `mode` really should be `umode_t` but it seems that I can't access this since I'm in user space
+void handle_openat(pid_t pid, int dir_fd, char *pidmem_filename, int flags, mode_t mode){
+
+    // https://man7.org/linux/man-pages/man2/openat.2.html
+
+    // `flags` must include one of these: O_RDONLY (read only), O_WRONLY (write only), O_RDWR (read and write)
+    // other flags can be bitwise ORed
+
     // get actual filename
     char filename[PATH_MAXLEN+1] = {0}; // we don't need to compensate for the long here, we've already done that in the macro definition
     size_t filename_len = 0;
@@ -42,7 +48,7 @@ void handle_openat(pid_t pid, int dir_fd, char *pidmem_filename, __attribute__((
         }
     }
 
-    printf(PREFIX "SYS_openat: dir_fd=%d filename=%s\n", dir_fd, filename);
+    printf(PREFIX "SYS_openat: dir_fd=%d flags=%d mode=%d filename=%s\n", dir_fd, flags, mode, filename);
 }
 
 int filter_syscalls(){
