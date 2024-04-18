@@ -121,7 +121,7 @@ void run_sandboxed_process(char *process_to_run, char **process_args){
     }
 
     // 1. do not filter the child's call to `execvp`; I don't know why but this still works even after adding the seccomp rules; but what if the child receives a signal before it is able to execvp - then what should happen is, we should filter the execvp syscall with the code below, not ideal but better make it not functional rether than allowing for an unfiltered syscall
-    // 2. `PTRACE_SETOPTIONS`
+    // 2. allow us to use `PTRACE_SETOPTIONS`
     waitpid(child, 0, 0);
 
     ASSERT_0(
