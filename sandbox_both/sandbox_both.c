@@ -39,7 +39,7 @@
 #define PATH_MAXLEN (4096+100)
 
 #define DISABLE_NETWORKING 1
-#define DISABLE_OPENING 0
+#define DISABLE_OPENING 1 // TODO this actually does not work
 
 ////// function macros
 
