@@ -141,27 +141,7 @@ void run_sandboxed_process(char *process_to_run, char **process_args){
     );
 }
 
-int main(int argc, char *argv[]){
-
-    // parse args
-
-    if(argc == 1){
-        perror(PREFIX "you need to pass the application that you want to be run in the sandbox");
-        exit(-1);
-    }
-
-    // run sandboxed process
-
-    {
-
-        char *process_to_run = argv[1];
-        char **process_args = argv + 1;
-
-        run_sandboxed_process(process_to_run, process_args);
-    }
-
-    // filter syscalls
-
+int filter_syscalls(){
     int return_code = 0;
     int running_processes = 1;
     int syscalls_blocked = 0; // careful, this might overflow
@@ -337,6 +317,30 @@ int main(int argc, char *argv[]){
 
     printf("\n");
     printf(PREFIX "syscalls blocked: %d\n", syscalls_blocked);
+
+    return return_code;
+}
+
+int main(int argc, char *argv[]){
+
+    // check args
+
+    if(argc == 1){
+        perror(PREFIX "you need to pass the application that you want to be run in the sandbox");
+        exit(-1);
+    }
+
+    // run sandboxed process
+
+    char *process_to_run = argv[1];
+    char **process_args = argv + 1;
+    run_sandboxed_process(process_to_run, process_args);
+
+    // filter syscalls
+
+    int return_code = filter_syscalls();
+
+    // return
 
     return return_code;
 }
