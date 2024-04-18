@@ -7,7 +7,7 @@
 // PTRACE_SYSCALL means: stop at the nextsyscall
 // PTRACE_CONT means: stop at the next signal
 
-#include <sys/ptrace.h>
+#include <sys/ptrace.h> // sudo apt install libc6-dev
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/user.h>
@@ -17,7 +17,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/socket.h>
-#include <seccomp.h>
+#include <seccomp.h> // sudo apt install libseccomp-dev
 #include <errno.h>
 #include <linux/types.h>
 
@@ -39,7 +39,7 @@
 #define PATH_MAXLEN (4096+100)
 
 #define DISABLE_NETWORKING 1
-#define DISABLE_FILESYSTEM 1 // TODO bad name
+#define DISABLE_OPENING 0
 
 ////// function macros
 
@@ -67,7 +67,7 @@ void set_seccomp_rules(){
 
     // rules: IO
 
-    if(DISABLE_FILESYSTEM){
+    if(DISABLE_OPENING){
         ASSERT_0(
             seccomp_rule_add(ctx, SCMP_ACT_TRACE(69), SCMP_SYS(open), 0)
         );
@@ -210,12 +210,10 @@ int main(int argc, char *argv[]){
 
         }else if(status>>8 == (SIGTRAP | (PTRACE_EVENT_SECCOMP<<8))){
             // syscall that we need to trace
-            // printf(PREFIX "YE\n");
 
 
         }else{
             // still no idea what this is; it keeps happening sometimes
-            // printf(PREFIX "idk wtf this is, status>>8=%d (PTRACE_EVENT_SECCOMP<<8)|SIGTRAP=%d\n", status>>8, (PTRACE_EVENT_SECCOMP<<8)|SIGTRAP);
             ptrace(PTRACE_CONT, pid, NULL, NULL);
             continue;
         }
