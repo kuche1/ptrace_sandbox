@@ -75,11 +75,11 @@ void set_seccomp_rules(){
     // rules: IO
 
     if(DISABLE_OPENING){
-        ASSERT_0(
+        ASSERT_0_EACCES(
             seccomp_rule_add(ctx, SCMP_ACT_TRACE(69), SCMP_SYS(open), 0)
         );
 
-        ASSERT_0(
+        ASSERT_0_EACCES(
             seccomp_rule_add(ctx, SCMP_ACT_TRACE(69), SCMP_SYS(openat), 0)
         );
     }
@@ -89,11 +89,11 @@ void set_seccomp_rules(){
     if(DISABLE_NETWORKING){
         // https://linasm.sourceforge.net/docs/syscalls/network.php
 
-        ASSERT_0(
+        ASSERT_0_EACCES(
             seccomp_rule_add(ctx, SCMP_ACT_TRACE(69), SCMP_SYS(socket), 0)
         );
 
-        ASSERT_0(
+        ASSERT_0_EACCES(
             seccomp_rule_add(ctx, SCMP_ACT_TRACE(69), SCMP_SYS(socketpair), 0)
         );
 
