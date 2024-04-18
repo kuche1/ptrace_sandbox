@@ -24,6 +24,8 @@
 // yeah, this is bad, but I don't care
 #include "get_syscall_name.c"
 
+// CPU registers
+
 #if __WORDSIZE == 64
 #define REG_SYSCALL_ID(reg) reg.orig_rax // we use this is we want to modify the syscall ID before execution
 #define REG_SYSCALL_ARG0(reg) reg.rdi // TODO tova se si mislq 4e trqbva da e orig_rdi
@@ -35,16 +37,21 @@
 #error only 64bit is supported
 #endif
 
+// printing
+
 #define PREFIX "SANDBOX_BOTH: " // all prints should start with this
 #define PRINT_BLOCKED_SYSCALLS 0
 
-#define DOMAIN_TYPE_MAX 100 // let's hope that there will never be more than 100 different AF_XYZ added
+// defines will rarely be changed
+
 #define PATH_MAXLEN (4096+100)
+
+// defines that might often get changed
 
 #define DISABLE_NETWORKING 1
 #define DISABLE_OPENING 1 // TODO this actually does not work
 
-////// function macros
+////// macro functions
 
 #define ASSERT_0(value) { \
     if(value != 0){ \
