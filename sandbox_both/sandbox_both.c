@@ -226,7 +226,6 @@ int filter_syscalls(){
 
         }else{
             // still no idea what this is; it keeps happening sometimes
-            // printf("wtf status>>8=%x SIGTRAP=%x pid=%d hui0=%d\n", status>>8, SIGTRAP, pid,   status>>8 == (SIGTRAP | (PTRACE_EVENT_VFORK_DONE<<8))   );
             // printf("wtf\n");
             ptrace(PTRACE_CONT, pid, NULL, NULL);
             continue;
@@ -328,7 +327,7 @@ int filter_syscalls(){
 
             default:{
                 char *name = get_syscall_name(syscall_id);
-                printf(PREFIX "unhandled syscall `%s` with id is %ld\n", name, syscall_id);
+                printf(PREFIX "unhandled syscall `%s` with id %ld\n", name, syscall_id);
             }
             break;
         }
