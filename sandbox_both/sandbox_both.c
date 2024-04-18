@@ -111,7 +111,7 @@ void set_seccomp_rules(){
         seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(write), 0)
     );
 
-    // rules: clean up
+    // rules: harmless clean up
 
     ASSERT_0_EACCES(
         seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(exit_group), 0)
