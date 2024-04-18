@@ -45,7 +45,7 @@
 
 #define ASSERT_0(value) { \
     if(value != 0){ \
-        fprintf(stderr, PREFIX "assert failed, file `%s`, line %d", __FILE__, __LINE__); \
+        fprintf(stderr, PREFIX "assert failed, file `%s`, line %d\n", __FILE__, __LINE__); \
         exit(-1); \
     } \
 }
@@ -109,20 +109,41 @@ void run_sandboxed_process(char *process_to_run, char **process_args){
 
     }else if(child == 0){
 
+        // printf("b4 traceme\n");
+
         ASSERT_0(
             ptrace(PTRACE_TRACEME, 0, NULL, NULL) // I tought that code execution will be paused until parent allows us to continue, but in fact this does not happen
         );
 
+        // printf("aftr traceme; b4 seccomp rules set\n");
+
         set_seccomp_rules();
+
+        // printf("after seccomp rules set; b4 execvp\n");
 
         execvp(process_to_run, process_args);
         perror(PREFIX "fail: execvp");
         exit(-1);
     }
 
+    // printf("b4 waitpid\n");
+
+    // I tought that we must `waitpid` in order to be able to `PTRACE_SETOPTIONS`, but in fact a simple `sleep` is sufficient
+    //
+    ////// old code:
     // 1. do not filter the child's call to `execvp`; I don't know why but this still works even after adding the seccomp rules; but what if the child receives a signal before it is able to execvp - then what should happen is, we should filter the execvp syscall with the code below, not ideal but better make it not functional rether than allowing for an unfiltered syscall
     // 2. allow us to use `PTRACE_SETOPTIONS`
-    waitpid(child, 0, 0);
+    // waitpid(child, 0, 0);
+    //
+    ////// new code:
+    // sleep(5);
+
+    // 1sec is 1e6
+    ASSERT_0( // TODO this assert is bad because the return code might have been caused by a signal, rather than a genuen error (see https://man7.org/linux/man-pages/man3/usleep.3.html)
+        usleep(1e5) // TODO this fucking sucks because we hope that this will be enough time for the child to init the ptrace
+    );
+
+    // printf("aftr waitpid; b4 ptrace set opts\n");
 
     ASSERT_0(
         ptrace(
