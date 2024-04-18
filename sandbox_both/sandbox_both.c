@@ -94,10 +94,16 @@ void set_seccomp_rules(){
 
     // load rules
 
-    if(seccomp_load(ctx) != 0){
-        perror(PREFIX "fail: seccomp_load");
-        exit(-1);
-    }
+    // printf("sleep b4 rule load\n");
+    // sleep(2);
+
+    printf("b4 load rules\n");
+
+    ASSERT_0(
+        seccomp_load(ctx)
+    );
+
+    printf("after load rules\n");
 }
 
 void run_sandboxed_process(char *process_to_run, char **process_args){
@@ -109,41 +115,34 @@ void run_sandboxed_process(char *process_to_run, char **process_args){
 
     }else if(child == 0){
 
-        // printf("b4 traceme\n");
+        printf("b4 traceme\n");
 
         ASSERT_0(
-            ptrace(PTRACE_TRACEME, 0, NULL, NULL) // I tought that code execution will be paused until parent allows us to continue, but in fact this does not happen
+            ptrace(PTRACE_TRACEME, 0, NULL, NULL)
+            // this does NOT pause execution
         );
 
-        // printf("aftr traceme; b4 seccomp rules set\n");
+        ASSERT_0(
+            raise(SIGSTOP)
+            // pausing execution since TRACEME won't do that by itself
+        );
+
+        printf("aftr traceme; b4 seccomp rules set\n");
 
         set_seccomp_rules();
 
-        // printf("after seccomp rules set; b4 execvp\n");
+        printf("after seccomp rules set; b4 execvp\n");
 
         execvp(process_to_run, process_args);
         perror(PREFIX "fail: execvp");
         exit(-1);
     }
 
-    // printf("b4 waitpid\n");
+    printf("b4 waitpid\n");
 
-    // I tought that we must `waitpid` in order to be able to `PTRACE_SETOPTIONS`, but in fact a simple `sleep` is sufficient
-    //
-    ////// old code:
-    // 1. do not filter the child's call to `execvp`; I don't know why but this still works even after adding the seccomp rules; but what if the child receives a signal before it is able to execvp - then what should happen is, we should filter the execvp syscall with the code below, not ideal but better make it not functional rether than allowing for an unfiltered syscall
-    // 2. allow us to use `PTRACE_SETOPTIONS`
-    // waitpid(child, 0, 0);
-    //
-    ////// new code:
-    // sleep(5);
+    waitpid(child, 0, 0); // wait for out SIGSTOP // TODO check that is really is our SIGSTOP
 
-    // 1sec is 1e6
-    ASSERT_0( // TODO this assert is bad because the return code might have been caused by a signal, rather than a genuen error (see https://man7.org/linux/man-pages/man3/usleep.3.html)
-        usleep(1e5) // TODO this fucking sucks because we hope that this will be enough time for the child to init the ptrace
-    );
-
-    // printf("aftr waitpid; b4 ptrace set opts\n");
+    printf("aftr waitpid; b4 ptrace set opts\n");
 
     ASSERT_0(
         ptrace(
@@ -211,10 +210,13 @@ int filter_syscalls(){
 
         }else if(status>>8 == (SIGTRAP | (PTRACE_EVENT_SECCOMP<<8))){
             // syscall that we need to trace
+            // printf("need to trace\n");
 
 
         }else{
             // still no idea what this is; it keeps happening sometimes
+            // printf("wtf status>>8=%x SIGTRAP=%x pid=%d hui0=%d\n", status>>8, SIGTRAP, pid,   status>>8 == (SIGTRAP | (PTRACE_EVENT_VFORK_DONE<<8))   );
+            printf("wtf\n");
             ptrace(PTRACE_CONT, pid, NULL, NULL);
             continue;
         }
