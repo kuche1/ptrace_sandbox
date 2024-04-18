@@ -50,6 +50,13 @@
     } \
 }
 
+// -EACCES - The rule conflicts with the filter (for example, the rule action equals the default action of the filter).
+#define ASSERT_0_EACCES(value) { \
+    if((value != 0) && (value != -EACCES)){ \
+        ASSERT_0(1); \
+    } \
+}
+
 ////// funcions
 
 void set_seccomp_rules(){
@@ -92,33 +99,27 @@ void set_seccomp_rules(){
 
     }
 
-    // // rules: harmless by themselves
+    // rules: harmless by themselves
 
-    // ASSERT_0(
-    //     seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(read), 0)
-    // );
-    // ASSERT_0(
-    //     seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(write), 0)
-    // );
+    ASSERT_0_EACCES(
+        seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(read), 0)
+    );
+    ASSERT_0_EACCES(
+        seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(write), 0)
+    );
 
-    // // rules: clean up
+    // rules: clean up
 
-    // ASSERT_0(
-    //     seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(exit_group), 0)
-    // );
+    ASSERT_0_EACCES(
+        seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(exit_group), 0)
+    );
 
     // load rules
-
-    // printf("sleep b4 rule load\n");
-    // sleep(2);
-
-    printf("b4 load rules\n");
 
     ASSERT_0(
         seccomp_load(ctx)
     );
 
-    printf("after load rules\n");
 }
 
 void run_sandboxed_process(char *process_to_run, char **process_args){
@@ -130,8 +131,6 @@ void run_sandboxed_process(char *process_to_run, char **process_args){
 
     }else if(child == 0){
 
-        printf("b4 traceme\n");
-
         ASSERT_0(
             ptrace(PTRACE_TRACEME, 0, NULL, NULL)
             // this does NOT pause execution
@@ -142,22 +141,14 @@ void run_sandboxed_process(char *process_to_run, char **process_args){
             // pausing execution since TRACEME won't do that by itself
         );
 
-        printf("aftr traceme; b4 seccomp rules set\n");
-
         set_seccomp_rules();
-
-        printf("after seccomp rules set; b4 execvp\n");
 
         execvp(process_to_run, process_args);
         perror(PREFIX "fail: execvp");
         exit(-1);
     }
 
-    printf("b4 waitpid\n");
-
     waitpid(child, 0, 0); // wait for out SIGSTOP // TODO check that is really is our SIGSTOP
-
-    printf("aftr waitpid; b4 ptrace set opts\n");
 
     ASSERT_0(
         ptrace(
