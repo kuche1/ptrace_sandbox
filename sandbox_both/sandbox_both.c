@@ -42,7 +42,7 @@
 #define PREFIX "SANDBOX_BOTH: " // all prints should start with this
 #define PRINT_BLOCKED_SYSCALLS 0
 
-// defines will rarely be changed
+// defines will rarely get changed
 
 #define PATH_MAXLEN (4096+100)
 
