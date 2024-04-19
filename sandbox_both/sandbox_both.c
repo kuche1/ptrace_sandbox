@@ -157,6 +157,11 @@ void run_sandboxed_process(char *process_to_run, char **process_args){
 
         set_seccomp_rules();
 
+        // TODO perhaps we could send a SIGUSR1 here to signify that the next syscall
+        // is going to be execvp
+        // worst case scenario: a malicious program sends the signal before this line, which is going to
+        // cause the syscall filtering to happen earlier, which might cause the child to terminate early (so nothing too bad)
+
         execvp(process_to_run, process_args);
         perror(PREFIX "fail: execvp");
         exit(-1);
