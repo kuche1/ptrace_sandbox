@@ -6,6 +6,9 @@
 //
 // PTRACE_SYSCALL means: stop at the nextsyscall
 // PTRACE_CONT means: stop at the next signal
+//
+// list of signals
+// https://www-uxsup.csx.cam.ac.uk/courses/moved.Building/signals.pdf
 
 #include <sys/ptrace.h> // sudo apt install libc6-dev
 #include <sys/types.h>
@@ -56,6 +59,10 @@
         fprintf(stderr, PREFIX "assert failed, file `%s`, line %d\n", __FILE__, __LINE__); \
         exit(-1); \
     } \
+}
+
+#define ASSERT(value){ \
+    ASSERT_0(!(value)); \
 }
 
 // -EACCES - The rule conflicts with the filter (for example, the rule action equals the default action of the filter).
@@ -125,6 +132,9 @@ void set_seccomp_rules(){
     // rules: harmless clean up
 
     ASSERT_0_EACCES(
+        seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(exit), 0)
+    );
+    ASSERT_0_EACCES(
         seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(exit_group), 0)
     );
 
@@ -157,19 +167,28 @@ void run_sandboxed_process(char *process_to_run, char **process_args){
 
         set_seccomp_rules();
 
-        // TODO perhaps we could send a SIGUSR1 here to signify that the next syscall
-        // is going to be execvp
-        // worst case scenario: a malicious program sends the signal before this line, which is going to
-        // cause the syscall filtering to happen earlier, which might cause the child to terminate early (so nothing too bad)
-        //
-        // another option is to use SIGSTOP
+        // // signify that we need to start filtering the syscalls
+        // ASSERT_0(
+        //     raise(SIGSTOP)
+        // );
+        // // worst case scenario: a malicious program sends the signal before this line, which is going to
+        // // cause the syscall filtering to happen earlier, which might cause the child to terminate early (so nothing too bad)
 
         execvp(process_to_run, process_args);
         perror(PREFIX "fail: execvp");
         exit(-1);
     }
 
-    waitpid(child, 0, 0); // wait for out SIGSTOP // TODO check that is really is our SIGSTOP
+    {
+        int status;
+        waitpid(child, &status, 0); // wait for the SIGSTOP
+        ASSERT(
+            WIFSTOPPED(status)
+        );
+        ASSERT(
+            WSTOPSIG(status) == SIGSTOP
+        );
+    }
 
     ASSERT_0(
         ptrace(
@@ -187,7 +206,47 @@ void run_sandboxed_process(char *process_to_run, char **process_args){
         ptrace(PTRACE_CONT, child, NULL, NULL)
     );
 
-    // TODO allow everything up to execvp
+    // TODO
+    // allow everything up to execvp
+
+    // for(;;){
+
+    //     int status;
+    //     waitpid(child, &status, 0);
+
+    //     if(WIFSTOPPED(status)){
+    //         int signal = WSTOPSIG(status);
+
+    //         printf("child was stopped by delivery of a signal %d SIGSTOP=%d\n", signal, SIGSTOP);
+
+    //         ASSERT_0(
+    //             ptrace(PTRACE_CONT, child, NULL, NULL)
+    //         );
+
+    //         if(signal == SIGSTOP){
+    //             break;
+    //         }
+    //     }
+    // }
+
+    // allow the execvp
+
+    // {
+    //     int status;
+    //     waitpid(child, &status, 0); // this should be the execvp
+
+    //     ASSERT(
+    //         WIFSTOPPED(status)
+    //     );
+
+    //     ASSERT(
+    //         WSTOPSIG(status) == SIGTRAP
+    //     );
+
+    //     ASSERT_0(
+    //         ptrace(PTRACE_CONT, child, NULL, NULL)
+    //     );
+    // }
 }
 
 int main(int argc, char *argv[]){
