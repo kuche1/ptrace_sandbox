@@ -1,6 +1,6 @@
 
 // `mode` really should be `umode_t` but it seems that I can't access this since I'm in user space
-void handle_openat(pid_t pid, int dir_fd, char *pidmem_filename, int flags, mode_t mode){
+void handle_syscall_openat(pid_t pid, int dir_fd, char *pidmem_filename, int flags, mode_t mode){
 
     // https://man7.org/linux/man-pages/man2/openat.2.html
 
@@ -157,7 +157,7 @@ int filter_syscalls(){
                 int flags = REG_SYSCALL_ARG1(regs);
                 mode_t mode = REG_SYSCALL_ARG2(regs);
 
-                handle_openat(pid, AT_FDCWD, filename, flags, mode);
+                handle_syscall_openat(pid, AT_FDCWD, filename, flags, mode);
             }
             break;
 
@@ -169,7 +169,7 @@ int filter_syscalls(){
                 int flags = REG_SYSCALL_ARG2(regs);
                 mode_t mode = REG_SYSCALL_ARG3(regs);
 
-                handle_openat(pid, dir_fd, filename, flags, mode);
+                handle_syscall_openat(pid, dir_fd, filename, flags, mode);
             }
             break;
 
