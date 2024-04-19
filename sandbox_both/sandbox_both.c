@@ -41,7 +41,7 @@
 ////// printing
 
 #define PREFIX "SANDBOX_BOTH: " // all prints should start with this
-#define PRINT_BLOCKED_SYSCALLS 0
+#define PRINT_BLOCKED_SYSCALLS 1
 
 ////// defines will rarely get changed
 
@@ -204,6 +204,7 @@ void run_sandboxed_process(char *process_to_run, char **process_args){
 
     ASSERT_0(
         ptrace(PTRACE_CONT, child, NULL, NULL)
+        // kill(child, SIGCONT)
     );
 
     // TODO

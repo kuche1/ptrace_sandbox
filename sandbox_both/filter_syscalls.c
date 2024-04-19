@@ -15,7 +15,7 @@ void handle_syscall_openat(pid_t pid, int dir_fd, char *pidmem_filename, int fla
 
         errno = 0;
         long chunk = ptrace(PTRACE_PEEKDATA, pid, mem_to_read, NULL);
-        if(errno != 0){
+        if((chunk == -1) && (errno != 0)){
             // TODO this sucks, if this fails probably the process has exited
             perror(PREFIX "PTRACE_PEEKDATA error; this needs to be fixed at some point");
             exit(-1);
@@ -70,7 +70,7 @@ int filter_syscalls(){
             // new process created
             // printf(PREFIX "new process spawned\n");
             running_processes += 1;
-            ptrace(PTRACE_CONT, pid, NULL, NULL);
+            ASSERT_0( ptrace(PTRACE_CONT, pid, NULL, NULL) );
             continue;
 
 
@@ -82,7 +82,7 @@ int filter_syscalls(){
             running_processes -= 1;
 
             unsigned long event_message;
-            ptrace(PTRACE_GETEVENTMSG, pid, NULL, &event_message);
+            ASSERT_0( ptrace(PTRACE_GETEVENTMSG, pid, NULL, &event_message) );
 
             if(event_message){
                 // there's something wrong with the code that gets the return code
@@ -90,7 +90,7 @@ int filter_syscalls(){
                 return_code = 1;
             }
 
-            ptrace(PTRACE_CONT, pid, NULL, NULL);
+            ASSERT_0( ptrace(PTRACE_CONT, pid, NULL, NULL) );
 
             if(running_processes <= 0){
                 break;
@@ -99,23 +99,32 @@ int filter_syscalls(){
 
 
         }else if(status>>8 == (SIGTRAP | (PTRACE_EVENT_SECCOMP<<8))){
-            // syscall that we need to trace
-            // printf("need to trace\n");
+            // syscall that we need to trace because of seccomp
 
 
         }else{
-            // still no idea what this is; it keeps happening sometimes
-            // printf("wtf\n");
-            ptrace(PTRACE_CONT, pid, NULL, NULL);
-            continue;
+            // idk how we got here
+
+            // it seems that if we get to this point we cannot effect the syscall
+            // eg, we cannot invalidate the syscall id
+            // (this very well seems to be the case with the execve syscall)
+
+            printf(PREFIX "wtf\n");
+
+            ASSERT(
+                WIFSTOPPED(status)
+            );
+
+            ASSERT(
+                WSTOPSIG(status) == SIGTRAP
+            );
         }
 
 
         struct user_regs_struct regs;
-        ptrace(PTRACE_GETREGS, pid, NULL, &regs);
+        ASSERT_0( ptrace(PTRACE_GETREGS, pid, NULL, &regs) );
 
         long syscall_id = REG_SYSCALL_ID(regs);
-        __attribute__((unused)) char *syscall_desc = "no description";
         int syscall_allow = 0;
 
         // printf(PREFIX "filtering syscall %ld\n", syscall_id);
@@ -133,17 +142,14 @@ int filter_syscalls(){
                         case AF_BRIDGE:
                         case AF_NETLINK:
                             syscall_allow = 1;
-                            syscall_desc = "socket creation: non-internet";
                             break;
                         
                         case AF_INET:
                         case AF_DECnet:
                         case AF_ROSE:
-                            syscall_desc = "socket creation: internet";
                             break;
 
                         default:
-                            syscall_desc = "socket creation: unknown (probably internet)";
                             printf(PREFIX "unknown socket creation of domain %d\n", domain);
                             break;
                     }
@@ -185,15 +191,16 @@ int filter_syscalls(){
             ++syscalls_blocked;
 
 #if PRINT_BLOCKED_SYSCALLS
-            printf(PREFIX "blocked syscall with id %ld; description: %s\n", syscall_id, syscall_desc);
+            char *name = get_syscall_name(syscall_id);
+            printf(PREFIX "blocked syscall `%s` with id %ld\n", name, syscall_id);
 #endif
 
             // TODO I think there was a way to invalidate the syscall quicker
             REG_SYSCALL_ID(regs) = -1; // invalidate the syscall by changing the id to some garbage
-            ptrace(PTRACE_SETREGS, pid, NULL, &regs);
+            ASSERT_0( ptrace(PTRACE_SETREGS, pid, NULL, &regs) );
         }
 
-        ptrace(PTRACE_CONT, pid, NULL, NULL);
+        ASSERT_0( ptrace(PTRACE_CONT, pid, NULL, NULL) );
 
     }
 
