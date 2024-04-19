@@ -161,6 +161,8 @@ void run_sandboxed_process(char *process_to_run, char **process_args){
         // is going to be execvp
         // worst case scenario: a malicious program sends the signal before this line, which is going to
         // cause the syscall filtering to happen earlier, which might cause the child to terminate early (so nothing too bad)
+        //
+        // another option is to use SIGSTOP
 
         execvp(process_to_run, process_args);
         perror(PREFIX "fail: execvp");
