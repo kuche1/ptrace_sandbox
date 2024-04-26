@@ -109,7 +109,7 @@ int filter_syscalls(){
             // eg, we cannot invalidate the syscall id
             // (this very well seems to be the case with the execve syscall)
 
-            printf(PREFIX "wtf\n");
+            printf(PREFIX "wtf, this must never happen; it's possible that the next syscall will be unblockable\n");
 
             ASSERT(
                 WIFSTOPPED(status)

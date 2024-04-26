@@ -49,7 +49,7 @@
 
 ////// defines that might often get changed
 
-#define DISABLE_OPENING 1 // TODO this actually does not work
+#define DISABLE_OPENING 0 // TODO this actually does not work
 
 ////// macro functions
 
