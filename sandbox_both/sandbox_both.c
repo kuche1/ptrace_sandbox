@@ -49,7 +49,6 @@
 
 ////// defines that might often get changed
 
-#define DISABLE_NETWORKING 1
 #define DISABLE_OPENING 1 // TODO this actually does not work
 
 ////// macro functions
@@ -80,7 +79,7 @@
 
 ////// funcions
 
-void set_seccomp_rules(){
+void set_seccomp_rules(int networking_disable){
     // allow all syscalls by default
     scmp_filter_ctx ctx = seccomp_init(SCMP_ACT_ALLOW); // SCMP_ACT_ALLOW SCMP_ACT_LOG SCMP_ACT_TRACE(69)
     if(ctx == NULL){
@@ -107,7 +106,7 @@ void set_seccomp_rules(){
 
     // rules: networking
 
-    if(DISABLE_NETWORKING){
+    if(networking_disable){
         // https://linasm.sourceforge.net/docs/syscalls/network.php
 
         ASSERT_0_EACCES(
@@ -146,7 +145,7 @@ void set_seccomp_rules(){
 
 }
 
-void run_sandboxed_process(char *process_to_run, char **process_args){
+void run_sandboxed_process(char *process_to_run, char **process_args, int networking_disable){
     pid_t child = fork();
 
     if(child < 0){
@@ -165,7 +164,7 @@ void run_sandboxed_process(char *process_to_run, char **process_args){
             // pausing execution since TRACEME won't do that by itself
         );
 
-        set_seccomp_rules();
+        set_seccomp_rules(networking_disable);
 
         // // signify that we need to start filtering the syscalls
         // ASSERT_0(
@@ -252,18 +251,41 @@ void run_sandboxed_process(char *process_to_run, char **process_args){
 
 int main(int argc, char *argv[]){
 
-    // check args
+    // default behaviour
 
-    if(argc == 1){
-        perror(PREFIX "you need to pass the application that you want to be run in the sandbox");
+    int networking_disable = 0;
+
+    // parse cmd switches
+
+    int idx_arg = 1;
+    for(; idx_arg < argc; ++idx_arg){
+        char *arg = argv[idx_arg];
+
+        if(!strcmp(arg, "--")){
+            ++idx_arg;
+            break;
+        }else if(!strcmp(arg, "--networking-disable")){
+            networking_disable = 1;
+        }else{
+            fprintf(stderr, PREFIX "unknown command line switch `%s`\n", arg);
+            exit(-1);
+        }
+    }
+
+    // parse application name and args
+
+    if(idx_arg >= argc){
+        fprintf(stderr, PREFIX "you need to pass the application that you want to be run in the sandbox\n");
         exit(-1);
     }
 
+    char *process_to_run = argv[idx_arg];
+    char **process_args = argv + idx_arg;
+
     // run sandboxed process
 
-    char *process_to_run = argv[1];
-    char **process_args = argv + 1;
-    run_sandboxed_process(process_to_run, process_args);
+    networking_disable = networking_disable; // TODO
+    run_sandboxed_process(process_to_run, process_args, networking_disable);
 
     // filter syscalls
 
