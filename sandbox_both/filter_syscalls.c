@@ -135,6 +135,9 @@ int filter_syscalls(){
             case SYS_socketpair:{
                     // https://man7.org/linux/man-pages/man2/socket.2.html
 
+                    // we're only going to end up here if the networking has already been disabled
+                    // so we don't need additional checks such as networking_disabled
+
                     int domain = REG_SYSCALL_ARG0(regs);
 
                     switch(domain){
